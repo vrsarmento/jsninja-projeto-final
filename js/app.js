@@ -38,15 +38,16 @@
 
   function app(){
 
-    var $company_name = new DOM('[data-js="company_name"]');
-    var $company_phone = new DOM('[data-js="company_phone"]');
-    var $alert = new DOM('[data-js="alert"]');
+    var $company_name = DOM('[data-js="company_name"]');
+    var $company_phone = DOM('[data-js="company_phone"]');
+    var $alert = DOM('[data-js="alert"]');
 
     var $car_image = DOM('[data-js="car_image"]');
     var $car_model = DOM('[data-js="car_model"');
     var $car_year = DOM('[data-js="car_year');
     var $car_license = DOM('[data-js="car_license');
     var $car_color = DOM('[data-js="car_color');
+    var carCounter = 0;
 
     var $table_body = DOM('[data-js="table_body"]');
 
@@ -57,10 +58,14 @@
       license : {value: '', type: 'text'},
       color: {value: '', type: 'text'},
     };
-    var cars_list = [];
     
     function initEvents(){
       DOM('[data-js="form"]').on('submit', handleFormSubmit);
+    }
+
+    function addButtonsEvents(){
+      var $delete_buttons = DOM('[data-js="delete_button"]');
+      $delete_buttons.on('click', handleClickDeleteButton);
     }
 
     function getCompanyInfo(){
@@ -124,34 +129,48 @@
       car.year.value = $car_year.get().value;
       car.license.value = $car_license.get().value;
       car.color.value = $car_color.get().value;
-      cars_list.push(car);
     }
 
     function updateTableCars(){
+      carCounter++;
       var $fragment = document.createDocumentFragment();
-      var $tr;
-      cars_list.forEach(function(item, index){
-        $tr = document.createElement('tr');
-        var $th = document.createElement('th');
-        $th.setAttribute('scope', 'row');
-        var $img = document.createElement('img');
-        $tr.appendChild($th);
-        $th.textContent = index+1;
-        var keys = Object.keys(item);
-        keys.map(function(prop){
-          if(car[prop].type === 'image'){
-            $img.setAttribute('src', car[prop].value);
-            var $td = document.createElement('td');
-            $td.appendChild($img);
-          }else{
-            var $td = document.createElement('td');
-            $td.textContent = car[prop].value;
-          }
-          $tr.appendChild($td);
-        });
+      var $tr = document.createElement('tr');
+      var $th = document.createElement('th');
+      $th.setAttribute('scope', 'row');
+      $tr.appendChild($th);
+      $th.textContent = carCounter;
+      var keys = Object.keys(car);
+      keys.map(function(prop){
+        if(car[prop].type === 'image'){
+          var $img = document.createElement('img');
+          $img.setAttribute('src', car[prop].value);
+          var $td = document.createElement('td');
+          $td.appendChild($img);
+        }else{
+          var $td = document.createElement('td');
+          $td.textContent = car[prop].value;
+        }
+        $tr.appendChild($td);
       });
+      var $td = document.createElement('td');
+      $td.appendChild(createDeleteButton());
+      $tr.appendChild($td);
 
       $table_body.get().appendChild($fragment.appendChild($tr));
+      addButtonsEvents();
+    }
+
+    function createDeleteButton(){
+      var $button = document.createElement('button');
+      $button.textContent = 'Remover';
+      $button.setAttribute('type', 'button');
+      $button.setAttribute('data-js', 'delete_button');
+      $button.classList.add('btn', 'btn-danger', 'btn-sm');
+      return $button;
+    }
+
+    function handleClickDeleteButton(e){
+      e.target.closest('tr').remove();
     }
 
     function hasEmptyField(){

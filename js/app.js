@@ -47,17 +47,21 @@
     var $car_year = DOM('[data-js="car_year');
     var $car_license = DOM('[data-js="car_license');
     var $car_color = DOM('[data-js="car_color');
-    var carCounter = 0;
 
     var $table_body = DOM('[data-js="table_body"]');
+    var carsList = [];
 
-    var car = {
-      image : {value: '', type: 'image'},
-      model : {value: '', type: 'text'},
-      year : {value: '', type: 'number'},
-      license : {value: '', type: 'text'},
-      color: {value: '', type: 'text'},
-    };
+    var car = newCarObject();
+
+    function newCarObject(){
+      return {
+        image : {value: '', type: 'image'},
+        brandModel : {value: '', type: 'text'},
+        year : {value: '', type: 'number'},
+        licensePlate : {value: '', type: 'text'},
+        color: {value: '', type: 'text'},
+      };
+    }
     
     function initEvents(){
       DOM('[data-js="form"]').on('submit', handleFormSubmit);
@@ -72,10 +76,10 @@
       var ajax = new XMLHttpRequest();
       ajax.open('GET', 'company.json');
       ajax.send();
-      ajax.addEventListener('readystatechange', handleReadyStateChange);
+      ajax.addEventListener('readystatechange', handleReadyCompanyInfo);
     }
 
-    function handleReadyStateChange(){
+    function handleReadyCompanyInfo(){
       if(isRequestOk.call(this)){
         var data = parseData.call(this);
         $company_name.get().textContent = data.name;
@@ -93,7 +97,7 @@
 				result = JSON.parse(this.responseText);
 			}catch(e){
 				result = null;
-			}
+      }
 			return result;
 		}
 
@@ -102,7 +106,7 @@
       hideAlert();
       if(verifyUserEntry()){
         fillCarObject();
-        updateTableCars();
+        addCarInRestAPI();
       }
     }
     
@@ -125,52 +129,114 @@
 
     function fillCarObject(){
       car.image.value = $car_image.get().value;
-      car.model.value = $car_model.get().value;
+      car.brandModel.value = $car_model.get().value;
       car.year.value = $car_year.get().value;
-      car.license.value = $car_license.get().value;
+      car.licensePlate.value = $car_license.get().value;
       car.color.value = $car_color.get().value;
     }
 
-    function updateTableCars(){
-      carCounter++;
-      var $fragment = document.createDocumentFragment();
-      var $tr = document.createElement('tr');
-      var $th = document.createElement('th');
-      $th.setAttribute('scope', 'row');
-      $tr.appendChild($th);
-      $th.textContent = carCounter;
-      var keys = Object.keys(car);
-      keys.map(function(prop){
-        if(car[prop].type === 'image'){
-          var $img = document.createElement('img');
-          $img.setAttribute('src', car[prop].value);
-          var $td = document.createElement('td');
-          $td.appendChild($img);
-        }else{
-          var $td = document.createElement('td');
-          $td.textContent = car[prop].value;
-        }
-        $tr.appendChild($td);
-      });
-      var $td = document.createElement('td');
-      $td.appendChild(createDeleteButton());
-      $tr.appendChild($td);
-
-      $table_body.get().appendChild($fragment.appendChild($tr));
-      addButtonsEvents();
+    function addCarInRestAPI(){
+      var addCarData = new XMLHttpRequest();
+      addCarData.open('POST', 'http://localhost:3000/car');
+      addCarData.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      addCarData.send(stringifyCarDataToSend(car));
+      addCarData.addEventListener('readystatechange', function(){
+        if(isRequestOk.call(this))
+          getCarsListFromRestAPI();
+      }, false);
     }
 
-    function createDeleteButton(){
+    function stringifyCarDataToSend(item){
+      var keys = Object.keys(car);
+      var dataToSend = '';
+      keys.map(function(prop){
+        dataToSend += prop + '=' + item[prop].value + '&';
+      });
+      return dataToSend.slice(0, dataToSend.length - 1);
+    }
+
+    function getCarsListFromRestAPI(){
+      var getCarsData = new XMLHttpRequest();
+      getCarsData.open('GET', 'http://localhost:3000/car');
+      getCarsData.send();
+      getCarsData.addEventListener('readystatechange', handleCarsData, false);
+    }
+
+    function handleCarsData(){
+      carsList = [];
+      if(isRequestOk.call(this)){
+        var data = parseData.call(this);
+        var newCar = [];
+        data.forEach(function(item, index){
+          var keys = Object.keys(car);
+          newCar[index] = Object.assign({}, newCarObject());
+          keys.map(function(prop){
+            newCar[index][prop].value = item[prop];
+          });
+          carsList.push(newCar[index]);
+        });
+        updateTableCars();
+      }
+    }
+
+    function deleteCarInRestAPI(index){
+      var deleteCarData = new XMLHttpRequest();
+      deleteCarData.open('DELETE', 'http://localhost:3000/car');
+      deleteCarData.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      deleteCarData.send('indexToDelete=' + index);
+      deleteCarData.addEventListener('readystatechange', function(){
+        if(isRequestOk.call(this))
+          getCarsListFromRestAPI();
+      }, false);
+    }
+
+    function updateTableCars(){
+      $table_body.get().innerHTML = '';
+      if(carsList.length > 0){
+        var $fragment = document.createDocumentFragment();
+        var keys = Object.keys(newCarObject());
+        carsList.forEach(function(item, index){
+          var $tr = document.createElement('tr');
+          var $th = document.createElement('th');
+          $th.setAttribute('scope', 'row');
+          $tr.appendChild($th);
+          $th.textContent = index + 1;
+          keys.map(function(prop){
+            if(item[prop].type === 'image'){
+              var $img = document.createElement('img');
+              $img.setAttribute('src', item[prop].value);
+              var $td = document.createElement('td');
+              $td.appendChild($img);
+            }else{
+              var $td = document.createElement('td');
+              $td.textContent = item[prop].value;
+            }
+            $tr.appendChild($td);
+          });
+          var $td = document.createElement('td');
+          $td.appendChild(createDeleteButton(index));
+          $tr.appendChild($td);
+          $fragment.appendChild($tr);
+        });
+
+        $table_body.get().appendChild($fragment);
+        addButtonsEvents();
+      }
+    }
+
+    function createDeleteButton(index){
       var $button = document.createElement('button');
       $button.textContent = 'Remover';
       $button.setAttribute('type', 'button');
       $button.setAttribute('data-js', 'delete_button');
+      $button.setAttribute('data-index', index);
       $button.classList.add('btn', 'btn-danger', 'btn-sm');
       return $button;
     }
 
     function handleClickDeleteButton(e){
-      e.target.closest('tr').remove();
+      var deleteCar = e.target.getAttribute('data-index');
+      deleteCarInRestAPI(deleteCar);
     }
 
     function hasEmptyField(){
@@ -196,7 +262,9 @@
 			var messages = {
 				empty: 'Preencha todos os campos obrigatórios.',
         invalid_url: 'Preencha o campo com uma URL válida.',
-        not_number: 'Preencha os campos indicados somente com números.'
+        not_number: 'Preencha os campos indicados somente com números.',
+        car_add_success: 'Carro cadastrado com sucesso.',
+        car_add_error: 'Não foi possível cadastrar o carro. Tente novamente.'
       };
       $alert.get().textContent = messages[type];
       showAlert();
@@ -214,6 +282,7 @@
       init: function init(){
         getCompanyInfo();
         initEvents();
+        getCarsListFromRestAPI();
       }
     }
 
